@@ -40,9 +40,12 @@ def sci_hier (d_matrix, c_matrix):
     diff_matrix = d_mat - c_mat
     hier = hac.linkage(diff_matrix)
     dend = hac.fcluster(hier,1.1505)
+    cluster = []
     for j in range(0, max(dend)+1):
         for i in [i for i,x in enumerate(dend) if x == j]:
-            if j == 1:
-                print(i)
+            if j == 2:
+                cluster.append(i)
+    print(cluster)
+    print(len(cluster))
 sci_hier(raw_calc(aligner()), corr_calc(aligner()))
     
