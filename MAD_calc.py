@@ -1,4 +1,6 @@
 from Bio import AlignIO
+from Bio.Align.Applications import MafftCommandline
+from Bio import SeqIO
 import numpy as np
 from Bio import Phylo
 from Bio.Phylo.TreeConstruction import DistanceCalculator
@@ -6,11 +8,30 @@ import dendropy
 from Bio.Phylo.TreeConstruction import DistanceTreeConstructor
 import matplotlib.pyplot as plt
 import scipy.cluster.hierarchy as hac
+from Bio.Seq import Seq
 
-def aligner ():
-    align = AlignIO.read(open('alignedbirds.fasta'), 'fasta')
-    return(align[1:20])
-align_seqs = aligner()
+def starting_pt (file):
+    records = list(SeqIO.parse(file, "fasta"))
+    return records
+full_seqs = starting_pt("birds_shortened.fasta")
+
+def align(seqs):
+    
+    SeqIO.write(seqs,"very_unlikely_to_be_called_this.fasta","fasta")
+    file = "very_unlikely_to_be_called_this.fasta"
+    in_file = "/home/god/Desktop/HawkEye/" + file
+    mafft_cline = MafftCommandline(input=in_file)
+    stdout, stderr = mafft_cline()
+    handle = open(file, "w")
+    handle.write(stdout)
+    handle.close()
+    upper_file = "VERY_UNLIKELY_TO_CALLED_THIS1.fasta"
+    records = (rec.upper() for rec in SeqIO.parse(file, "fasta"))
+    SeqIO.write(records, upper_file, "fasta")
+    # parse the sequences and save in a list
+    aligned_list = AlignIO.read(open(upper_file), 'fasta')
+    return aligned_list
+align_seqs = align(full_seqs)
 
 def raw_calc (aligned_seqs):
     raw_calculator = DistanceCalculator('identity')
@@ -52,5 +73,14 @@ def sci_hier (d_matrix, c_matrix):
                 if j == k:
                     cluster[j].append(i)
         k+=1
-    print(cluster)
+    cluster.remove(cluster[0])
+    return cluster
 output = sci_hier(raw_mat, corr_mat)
+
+
+
+
+        
+
+
+
