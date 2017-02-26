@@ -60,7 +60,8 @@ def sci_hier (d_matrix, c_matrix):
     c_mat = np.array(c_matrix)
     diff_matrix = d_mat - c_mat
     hier = hac.linkage(diff_matrix)
-    dend = hac.fcluster(hier,0.08, criterion = 'distance')
+    
+    dend = hac.fcluster(hier,float(np.mean(hier[:,[2]])), criterion = 'distance')
     num_clusters = max(dend)+1
     cluster = [[] for x in range(num_clusters)]
     k = 1
@@ -73,6 +74,10 @@ def sci_hier (d_matrix, c_matrix):
     cluster.remove(cluster[0])
     return cluster
 
+def alignment_wrap(cluster):
+    aligned_cluster = align(cluster)
+    return aligned_cluster
+
 def saturation_wrap (saturated):
     raw_mat = raw_calc(saturated)
     corr_mat = corr_calc(saturated)
@@ -82,36 +87,43 @@ def saturation_wrap (saturated):
 def hawk_wrap (file):
     merged_list = []
     raw_seqs = starting_pt(file)
-    full_align = align(raw_seqs)
-    whole_saturation = saturation_wrap(full_align)
-    if whole_saturation > 0.01:
+    full_align = alignment_wrap(raw_seqs)
+    saturation = saturation_wrap(full_align)
+    if saturation > 0.01:
         output = sci_hier(raw_calc(full_align), corr_calc(full_align))
-        saturated = True
-        while saturated:
-                num_clusters = len(output)
-                for i in range(num_clusters):
-                    if len(output[i]) > 1:
-                        cluster = output[i]
-                        cluster_seqs = [full_align[x] for x in cluster]
-                        cluster_aligned = align(cluster_seqs)
-                        cluster_sat = saturation_wrap(cluster_aligned)
-                        if cluster_sat > 0.01:
-                            saturated = True
-                            output = sci_hier(raw_calc(cluster_aligned),
-                                              corr_calc(cluster_aligned))
-                            return output
-                        elif cluster_sat < 0.01:
-                            merged_list.append(cluster_seqs)
-                    elif len(output[i]) <= 1:
-                        cluster = output[i]
-                        cluster_seqs = [full_align[x] for x in cluster]
-                        merged_list.append(cluster_seqs)
-                    saturated = False
+        saturated_list = output
+        while saturated_list:
+            current_cluster = saturated_list.pop(0)
+            if len(current_cluster) > 1:
+                cluster_seqs = [full_align[x] for x in current_cluster]
+                cluster_aligned = alignment_wrap(cluster_seqs)
+                cluster_sat = saturation_wrap(cluster_aligned)
+                if cluster_sat > 0.01:
+                        new_clusters = sci_hier(raw_calc(cluster_aligned),
+                                          corr_calc(cluster_aligned))
+                        if len(new_clusters) == 1:
+                            problem_seqs = new_clusters[0]
+                            while problem_seqs:
+                                solution = []
+                                solution.append(problem_seqs.pop(0))
+                                single_seqs = [current_cluster[x]
+                                               for x in solution]
+                                merged_list.append(single_seqs)
+                        elif len(new_clusters) >= 1:
+                            while new_clusters:
+                                separate = new_clusters.pop(0)
+                                new_cluster_seqs = [current_cluster[x]
+                                                    for x in separate]
+                                saturated_list.append(new_cluster_seqs)
+                elif cluster_sat < 0.01:
+                        merged_list.append(current_cluster)
+            elif len(current_cluster) <= 1:
+                    merged_list.append(current_cluster)
+        return merged_list
     elif whole_saturation < 0.01:
         merged_list.append(full_align)
         return merged_list
-    SeqIO.write(merged_list, "unlikely_merged_file.fasta", "fasta")
-seqs = hawk_wrap("birds_shortened.fasta")
-
+x = hawk_wrap("seq.fasta")
+y = hawk_wrap("newshort.fasta")
 
 
