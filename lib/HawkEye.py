@@ -1,36 +1,38 @@
-from Bio import AlignIO
+# Headers
+from Bio import AlignIO, SeqIO, Phylo
 from Bio.Align.Applications import MafftCommandline
-from Bio import SeqIO
-import numpy as np
-from Bio import Phylo
+from Bio.Seq import Seq
 from Bio.Phylo.TreeConstruction import DistanceCalculator
-import dendropy
 from Bio.Phylo.TreeConstruction import DistanceTreeConstructor
+
+import tempfile
+import numpy as np
+import dendropy
 import matplotlib.pyplot as plt
 import scipy.cluster.hierarchy as hac
-from Bio.Seq import Seq
+
+# Functions
 
 def starting_pt (file):
     records = list(SeqIO.parse(file, "fasta"))
     return records
 
 def align(seqs):
-    SeqIO.write(seqs,"very_unlikely_to_be_called_this.fasta","fasta")
-    
-    file = "very_unlikely_to_be_called_this.fasta"
-    in_file = "/home/god/Desktop/HawkEye/" + file
-    mafft_cline = MafftCommandline(input=in_file)
-    stdout, stderr = mafft_cline()
-    handle = open(file, "w")
-    handle.write(stdout)
-    handle.close()
-    #the mafft alignment put thesequences in lower case. For the rest of this
-    #   program, upper case lettering is needed.
-    upper_file = "VERY_UNLIKELY_TO_CALLED_THIS1.fasta"
-    records = (rec.upper() for rec in SeqIO.parse(file, "fasta"))
-    SeqIO.write(records, upper_file, "fasta")
-    #parse the sequences and save in a list
-    aligned_list = AlignIO.read(open(upper_file), 'fasta')
+    with tempfile.NamedTemporaryFile() as lower_file:
+        SeqIO.write(seqs,lower_file.name,"fasta")
+        mafft_cline = MafftCommandline(input=lower_file.name)
+        stdout, stderr = mafft_cline()
+        handle = open(lower_file.name, "w")
+        handle.write(stdout)
+        handle.close()
+        
+        #the mafft alignment put thesequences in lower case. For the rest of this
+        #   program, upper case lettering is needed.
+        with tempfile.NamedTemporaryFile() as upper_file:
+            records = (rec.upper() for rec in SeqIO.parse(lower_file.name, "fasta"))
+            SeqIO.write(records, upper_file.name, "fasta")
+            #parse the sequences and save in a list
+            aligned_list = AlignIO.read(open(upper_file.name), 'fasta')
     return aligned_list
 
 def raw_calc (aligned_seqs):
@@ -123,7 +125,5 @@ def hawk_wrap (file):
     elif whole_saturation < 0.01:
         merged_list.append(full_align)
         return merged_list
-x = hawk_wrap("seq.fasta")
-y = hawk_wrap("newshort.fasta")
 
 
