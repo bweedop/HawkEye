@@ -38,46 +38,48 @@ def align(seqs):
     return aligned_list
 
 def raw_calc (aligned_seqs):
-    dnadist_cline = dist(sequence="VERY_UNLIKELY_TO_CALLED_THIS1.phy",
-                         method = 's', outfile=
-                         "HERaw_Matrix.txt")
-    stdout, stderr = dnadist_cline()
-    with open("/home/god/Documents/oldHawkEye//HERaw_Matrix.txt", 'r') as raw:
-        lines = raw.read()
-        l = []
-        for t in lines.split():
-            try:
-                l.append(float(t))
-            except ValueError:
-                pass
-    raw.close()
-    array_dim = int(l.pop(0))
-    sim_raw_array = np.array(l)
-    distance_raw_array = 1 - sim_raw_array
-    distance_raw_array.resize((array_dim, array_dim))
-    return distance_raw_array
+    with tempfile.NamedTemporaryFile() as align_file:
+        SeqIO.write(aligned_seqs,align_file.name,"fasta")
+        with tempfile.NamedTemporaryFile() as upper_file:
+            
+            dnadist_cline = dist(sequence=align_file.name,method = 's', outfile=
+                                 upper_file.name)
+            stdout, stderr = dnadist_cline()
+            lines = upper_file.read()
+            l = []
+            for t in lines.split():
+                try:
+                    l.append(float(t))
+                except ValueError:
+                    pass
+        array_dim = int(l.pop(0))
+        sim_raw_array = np.array(l)
+        distance_raw_array = 1 - sim_raw_array
+        distance_raw_array.resize((array_dim, array_dim))
+        return distance_raw_array
 
 def corr_calc (aligned_seqs):
-    dnadist_cline = dist(sequence="VERY_UNLIKELY_TO_CALLED_THIS1.phy",
-                         method = 'j',outfile=
-                         "HECorrected_Matrix.txt")
-    stdout, stderr = dnadist_cline()
-    with open("/home/god/Documents/oldHawkEye/HECorrected_Matrix.txt", 'r') as corrected:
-        lines = corrected.read()
-        l = []
-        for t in lines.split():
-            try:
-                l.append(float(t))
-            except ValueError:
-                pass
-    corrected.close()
+    with tempfile.NamedTemporaryFile() as align_file:
+        SeqIO.write(aligned_seqs,align_file.name,"fasta")
+        with tempfile.NamedTemporaryFile() as upper_file:
+            
+            dnadist_cline = dist(sequence=align_file.name ,method = 'j', outfile=
+                                 upper_file.name)
+            stdout, stderr = dnadist_cline()
+            lines = upper_file.read()
+            l = []
+            for t in lines.split():
+                try:
+                    l.append(float(t))
+                except ValueError:
+                    pass
     array_dim = int(l.pop(0))
     corr_array = np.array(l)
     corr_array.resize((array_dim, array_dim))
     return corr_array
 
 def sat_test (d_matrix, c_matrix):
-    diff_matrix = d_mat - c_mat
+    diff_matrix = d_matrix - c_matrix
     rows = diff_matrix.shape[0]
     cols = diff_matrix.shape[1]
     for i in range(0, rows):
@@ -87,7 +89,7 @@ def sat_test (d_matrix, c_matrix):
     return mad
 
 def sci_hier (d_matrix, c_matrix):
-    diff_matrix = d_mat - c_mat
+    diff_matrix = d_matrix - c_matrix
     hier = hac.linkage(diff_matrix)
     dend = hac.fcluster(hier,float(np.mean(hier[:,[2]])), criterion = 'distance')
     num_clusters = max(dend)+1
@@ -170,35 +172,38 @@ def clusters_alignment (file):
         current_cluster = clusters.pop(0)
         if len(current_cluster) > 1:
             multiple_seqs = [full_alignment[x] for x in current_cluster]
-            aligned_multiples = alignment_wrap(multiple_seqs)
-            subprocess.run(["em_cons",
-                            "/home/god/Documents/oldHawkEye/very_unlikely_to_be_called_this.fasta",
-                            "/home/god/Documents/oldHawkEye/very_unlikely_consensus.cons"])
-            with open("/home/god/Documents/oldHawkEye/very_unlikely_consensus.cons") as consensus:
-                seq = consensus.read()
-                con = []
-                dash = 'n'
-                R_DNA = ['A','C','T','G','U']
-                for i in seq.split():
-                    for j in i:
-                        if j in R_DNA:
-                            con.append(j)
-                        elif j not in R_DNA:
-                            pass
-                con_str = ''.join(str(k) for k in con)
-            consensus.close()
-            simple_seq_r = SeqRecord(Seq(con_str, SingleLetterAlphabet()),
-                                     id = "CLUSTER"+str(cluster_index.pop(0)))
-            consensus_list.append(simple_seq_r)
+            with tempfile.NamedTemporaryFile() as alignment_file:
+                SeqIO.write(multiple_seqs,alignment_file.name,"fasta")
+                with tempfile.NamedTemporaryFile() as consensus_file:
+                    subprocess.call(["em_cons", alignment_file.name,consensus_file.name])
+                    seq = consensus_file.name
+                    data = open(seq).read()
+                    con = []
+                    dash = 'n'
+                    R_DNA = ['A','a','C','c','T','t','G','g','U','u']
+                    for i in data.split():
+                        for j in i:
+                            if j in R_DNA:
+                                con.append(j)
+                            elif j not in R_DNA:
+                                pass
+                    con_str = ''.join(str(k) for k in con)
+                simple_seq_r = SeqRecord(Seq(con_str, SingleLetterAlphabet()),
+                                         id = "CLUSTER"+str(cluster_index.pop(0)))
+                consensus_list.append(simple_seq_r)
         elif len(current_cluster) == 1:
             single_seq = [full_alignment[x] for x in current_cluster]
             consensus_list.append(single_seq.pop(0))
-    SeqIO.write(consensus_list,"very_unlikely_to_be_called_this.fasta","fasta")
-    file = "very_unlikely_to_be_called_this.fasta"
-    in_file = "/home/god/Documents/oldHawkEye/" + file
-    mafft_cline = MafftCommandline(input=in_file)
-    stdout, stderr = mafft_cline()
-    handle = open(file, "w")
-    handle.write(stdout)
-    handle.close()
+    with tempfile.NamedTemporaryFile() as consensus_alignment: 
+        SeqIO.write(consensus_list,consensus_alignment.name,"fasta")
+        file = consensus_alignment.name
+        in_file = consensus_alignment.name
+        mafft_cline = MafftCommandline(input=in_file)
+        stdout, stderr = mafft_cline()
+        handle = open(file, "w")
+        handle.write(stdout)
+        handle.close()
+        path = consensus_alignment.name
+        data = open(path).read()
+    return data
 
