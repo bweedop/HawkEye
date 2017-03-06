@@ -2,13 +2,15 @@
 from Bio import AlignIO, SeqIO, Phylo
 from Bio.Align.Applications import MafftCommandline
 from Bio.Seq import Seq
-from Bio.Phylo.TreeConstruction import DistanceCalculator
-from Bio.Phylo.TreeConstruction import DistanceTreeConstructor
+from Bio.SeqRecord import SeqRecord
+from Bio.Alphabet import SingleLetterAlphabet
+from Bio.Emboss.Applications import FDNADistCommandline as dist
+import os
+import subprocess
 
 import tempfile
 import numpy as np
 import dendropy
-import matplotlib.pyplot as plt
 import scipy.cluster.hierarchy as hac
 
 # Functions
@@ -36,18 +38,45 @@ def align(seqs):
     return aligned_list
 
 def raw_calc (aligned_seqs):
-    raw_calculator = DistanceCalculator('identity')
-    distance_matrix = raw_calculator.get_distance(aligned_seqs)
-    return(distance_matrix)
+    dnadist_cline = dist(sequence="VERY_UNLIKELY_TO_CALLED_THIS1.phy",
+                         method = 's', outfile=
+                         "HERaw_Matrix.txt")
+    stdout, stderr = dnadist_cline()
+    with open("/home/god/Documents/oldHawkEye//HERaw_Matrix.txt", 'r') as raw:
+        lines = raw.read()
+        l = []
+        for t in lines.split():
+            try:
+                l.append(float(t))
+            except ValueError:
+                pass
+    raw.close()
+    array_dim = int(l.pop(0))
+    sim_raw_array = np.array(l)
+    distance_raw_array = 1 - sim_raw_array
+    distance_raw_array.resize((array_dim, array_dim))
+    return distance_raw_array
 
 def corr_calc (aligned_seqs):
-    corr_calculator = DistanceCalculator('blosum62')
-    correcting_matrix = corr_calculator.get_distance(aligned_seqs)
-    return(correcting_matrix)
+    dnadist_cline = dist(sequence="VERY_UNLIKELY_TO_CALLED_THIS1.phy",
+                         method = 'j',outfile=
+                         "HECorrected_Matrix.txt")
+    stdout, stderr = dnadist_cline()
+    with open("/home/god/Documents/oldHawkEye/HECorrected_Matrix.txt", 'r') as corrected:
+        lines = corrected.read()
+        l = []
+        for t in lines.split():
+            try:
+                l.append(float(t))
+            except ValueError:
+                pass
+    corrected.close()
+    array_dim = int(l.pop(0))
+    corr_array = np.array(l)
+    corr_array.resize((array_dim, array_dim))
+    return corr_array
 
 def sat_test (d_matrix, c_matrix):
-    d_mat = np.array(d_matrix)
-    c_mat = np.array(c_matrix)
     diff_matrix = d_mat - c_mat
     rows = diff_matrix.shape[0]
     cols = diff_matrix.shape[1]
@@ -58,11 +87,8 @@ def sat_test (d_matrix, c_matrix):
     return mad
 
 def sci_hier (d_matrix, c_matrix):
-    d_mat = np.array(d_matrix)
-    c_mat = np.array(c_matrix)
     diff_matrix = d_mat - c_mat
     hier = hac.linkage(diff_matrix)
-    
     dend = hac.fcluster(hier,float(np.mean(hier[:,[2]])), criterion = 'distance')
     num_clusters = max(dend)+1
     cluster = [[] for x in range(num_clusters)]
@@ -90,8 +116,8 @@ def hawk_wrap (file):
     merged_list = []
     raw_seqs = starting_pt(file)
     full_align = alignment_wrap(raw_seqs)
-    saturation = saturation_wrap(full_align)
-    if saturation > 0.01:
+    whole_saturation = saturation_wrap(full_align)
+    if whole_saturation > 0.01:
         output = sci_hier(raw_calc(full_align), corr_calc(full_align))
         saturated_list = output
         while saturated_list:
@@ -103,14 +129,20 @@ def hawk_wrap (file):
                 if cluster_sat > 0.01:
                         new_clusters = sci_hier(raw_calc(cluster_aligned),
                                           corr_calc(cluster_aligned))
+                        
                         if len(new_clusters) == 1:
-                            problem_seqs = new_clusters[0]
-                            while problem_seqs:
-                                solution = []
-                                solution.append(problem_seqs.pop(0))
-                                single_seqs = [current_cluster[x]
-                                               for x in solution]
-                                merged_list.append(single_seqs)
+                            if len(new_clusters[0]) > 2:
+                                print("ERROR: Issue with separating clusters")
+                                break
+                            elif len(new_clusters[0]) <= 2:
+                                
+                                problem_seqs = new_clusters[0]
+                                while problem_seqs:
+                                    solution = []
+                                    solution.append(problem_seqs.pop(0))
+                                    single_seqs = [current_cluster[x]
+                                                   for x in solution]
+                                    merged_list.append(single_seqs)
                         elif len(new_clusters) >= 1:
                             while new_clusters:
                                 separate = new_clusters.pop(0)
@@ -126,4 +158,47 @@ def hawk_wrap (file):
         merged_list.append(full_align)
         return merged_list
 
+def clusters_alignment (file):
+    full_alignment = starting_pt(file)
+    clusters = hawk_wrap(file)
+    consensus_list = []
+    cluster_index = []
+    for x in range(len(clusters)):
+        if len(clusters[x]) > 1:
+            cluster_index.append(x)
+    while clusters:
+        current_cluster = clusters.pop(0)
+        if len(current_cluster) > 1:
+            multiple_seqs = [full_alignment[x] for x in current_cluster]
+            aligned_multiples = alignment_wrap(multiple_seqs)
+            subprocess.run(["em_cons",
+                            "/home/god/Documents/oldHawkEye/very_unlikely_to_be_called_this.fasta",
+                            "/home/god/Documents/oldHawkEye/very_unlikely_consensus.cons"])
+            with open("/home/god/Documents/oldHawkEye/very_unlikely_consensus.cons") as consensus:
+                seq = consensus.read()
+                con = []
+                dash = 'n'
+                R_DNA = ['A','C','T','G','U']
+                for i in seq.split():
+                    for j in i:
+                        if j in R_DNA:
+                            con.append(j)
+                        elif j not in R_DNA:
+                            pass
+                con_str = ''.join(str(k) for k in con)
+            consensus.close()
+            simple_seq_r = SeqRecord(Seq(con_str, SingleLetterAlphabet()),
+                                     id = "CLUSTER"+str(cluster_index.pop(0)))
+            consensus_list.append(simple_seq_r)
+        elif len(current_cluster) == 1:
+            single_seq = [full_alignment[x] for x in current_cluster]
+            consensus_list.append(single_seq.pop(0))
+    SeqIO.write(consensus_list,"very_unlikely_to_be_called_this.fasta","fasta")
+    file = "very_unlikely_to_be_called_this.fasta"
+    in_file = "/home/god/Documents/oldHawkEye/" + file
+    mafft_cline = MafftCommandline(input=in_file)
+    stdout, stderr = mafft_cline()
+    handle = open(file, "w")
+    handle.write(stdout)
+    handle.close()
 
