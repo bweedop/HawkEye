@@ -7,10 +7,10 @@ import argparse
 def main():
     args = parser.parse_args()
     if args.version:
-        print("v0.1")
+        print "v0.1"
     else:
-        print("\n\nWelcome to HawkEye! Let's align something!")
-        print(HE.clusters_alignment(args.DNA))
+        print "\n\nWelcome to HawkEye! Let's align something!"
+        print HE.grande_alignment(args.DNA)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser("HawkEye - sequence alignment for the brave", epilog="Written by Bodie Weedop and Will Pearse", usage="./HawkEye.py sequence_file.fasta")

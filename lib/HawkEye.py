@@ -188,12 +188,20 @@ def clusters_alignment (file):
                             elif j not in R_DNA:
                                 pass
                     con_str = ''.join(str(k) for k in con)
-                simple_seq_r = SeqRecord(Seq(con_str, SingleLetterAlphabet()),
-                                         id = "CLUSTER"+str(cluster_index.pop(0)))
-                consensus_list.append(simple_seq_r)
+            cluster_seq_id = []
+            while multiple_seqs:
+                 seq_info = multiple_seqs.pop(0)
+                 cluster_seq_id.append(seq_info.id)
+
+            seqid_string = '|'.join(str(l) for l in cluster_seq_id)
+            simple_seq_r = SeqRecord(Seq(con_str, SingleLetterAlphabet()),
+                                     id = "CLUSTER_"+str(cluster_index.pop(0))
+                                     +": "+seqid_string)
+            consensus_list.append(simple_seq_r)
         elif len(current_cluster) == 1:
             single_seq = [full_alignment[x] for x in current_cluster]
             consensus_list.append(single_seq.pop(0))
+    final_aligned_clusters = []
     with tempfile.NamedTemporaryFile() as consensus_alignment: 
         SeqIO.write(consensus_list,consensus_alignment.name,"fasta")
         file = consensus_alignment.name
@@ -205,5 +213,70 @@ def clusters_alignment (file):
         handle.close()
         path = consensus_alignment.name
         data = open(path).read()
-    return data
+        with tempfile.NamedTemporaryFile() as clusters_file:
+            records = (rec.upper() for rec in SeqIO.parse(consensus_alignment.name,
+                                                          "fasta"))
+            SeqIO.write(records, clusters_file.name, "fasta")
+            aligned_list = AlignIO.read(open(clusters_file.name), 'fasta')
+    return aligned_list
+
+def grande_alignment (file):
+    raw_seqs = starting_pt(file)
+    before_segment = clusters_alignment(file)
+    list_of_clusters = hawk_wrap(file)
+    big_final_alignment = []
+    seqs_in_consensus = []
+    position = 0
+    while list_of_clusters:
+        current_cluster = list_of_clusters.pop(0)
+        if len(current_cluster) == 1:
+            single_seq = before_segment[position]
+            big_final_alignment.append(single_seq)
+            position += 1
+        elif len(current_cluster) > 1:
+            seqs_in_the_cluster = [raw_seqs[x] for x in current_cluster]
+            multiple_seq = before_segment[position]
+            while seqs_in_the_cluster:
+                seqs_in_consensus.append(seqs_in_the_cluster.pop(0))
+                with tempfile.NamedTemporaryFile() as segment_align:
+                    SeqIO.write(seqs_in_consensus,segment_align.name, "fasta")
+                    original_seqs = list(SeqIO.parse(segment_align.name, "fasta"))
+                    with tempfile.NamedTemporaryFile() as segmenter:
+                        dash = '-'
+                        consensus = multiple_seq.seq
+                        seq = original_seqs
+                        for n in range(len(seq)):
+                            seq_str = seq[n].seq
+                            seq_id = seq[n].id
+                            able_to_insert_seq = seq_str.tomutable()
+                        for x in consensus:
+                            if x == dash:
+                                dashes = [y for y, x in enumerate(consensus) if x == dash]
+                        while dashes:
+                            dash_position = dashes.pop(0)
+                            able_to_insert_seq.insert(dash_position, '-')
+                        new_seq_record = SeqRecord(Seq(str(able_to_insert_seq),
+                                                       SingleLetterAlphabet()),
+                                                   id = seq_id)
+                        big_final_alignment.append(new_seq_record)
+                        
+            position += 1
+    for seqs in range(len(big_final_alignment)):
+        print(">"+big_final_alignment[seqs].id)
+        print(big_final_alignment[seqs].seq)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
