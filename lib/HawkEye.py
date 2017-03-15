@@ -91,7 +91,7 @@ def sat_test (d_matrix, c_matrix):
 def sci_hier (d_matrix, c_matrix):
     diff_matrix = d_matrix - c_matrix
     hier = hac.linkage(diff_matrix)
-    dend = hac.fcluster(hier,float(np.mean(hier[:,[2]])), criterion = 'distance')
+    dend = hac.fcluster(hier,float(2*np.std(hier[:,[2]])), criterion = 'distance')
     num_clusters = max(dend)+1
     cluster = [[] for x in range(num_clusters)]
     k = 1
@@ -157,50 +157,55 @@ def hawk_wrap (file):
                     merged_list.append(current_cluster)
         return merged_list
     elif whole_saturation < 0.01:
-        merged_list.append(full_align)
-        return merged_list
+        onlyCluster = list(range(0, len(full_align)))
+        return onlyCluster
 
 def clusters_alignment (file):
     full_alignment = starting_pt(file)
     clusters = hawk_wrap(file)
     consensus_list = []
     cluster_index = []
-    for x in range(len(clusters)):
-        if len(clusters[x]) > 1:
-            cluster_index.append(x)
+    if type(clusters[0]) == list:
+        for x in range(len(clusters)):
+            if len(clusters[x]) > 1:
+                cluster_index.append(x)
     while clusters:
-        current_cluster = clusters.pop(0)
-        if len(current_cluster) > 1:
-            multiple_seqs = [full_alignment[x] for x in current_cluster]
-            with tempfile.NamedTemporaryFile() as alignment_file:
-                SeqIO.write(multiple_seqs,alignment_file.name,"fasta")
-                with tempfile.NamedTemporaryFile() as consensus_file:
-                    subprocess.call(["em_cons", alignment_file.name,consensus_file.name])
-                    seq = consensus_file.name
-                    data = open(seq).read()
-                    con = []
-                    dash = 'n'
-                    R_DNA = ['A','a','C','c','T','t','G','g','U','u']
-                    for i in data.split():
-                        for j in i:
-                            if j in R_DNA:
-                                con.append(j)
-                            elif j not in R_DNA:
-                                pass
-                    con_str = ''.join(str(k) for k in con)
-            cluster_seq_id = []
-            while multiple_seqs:
-                 seq_info = multiple_seqs.pop(0)
-                 cluster_seq_id.append(seq_info.id)
+        if type(clusters[0]) == list:
+            current_cluster = clusters.pop(0)
+            if len(current_cluster) > 1:
+                multiple_seqs = [full_alignment[x] for x in current_cluster]
+                with tempfile.NamedTemporaryFile() as alignment_file:
+                    SeqIO.write(multiple_seqs,alignment_file.name,"fasta")
+                    with tempfile.NamedTemporaryFile() as consensus_file:
+                        subprocess.call(["em_cons", alignment_file.name,consensus_file.name])
+                        seq = consensus_file.name
+                        data = open(seq).read()
+                        con = []
+                        dash = 'n'
+                        R_DNA = ['A','a','C','c','T','t','G','g','U','u']
+                        for i in data.split():
+                            for j in i:
+                                if j in R_DNA:
+                                    con.append(j)
+                                elif j not in R_DNA:
+                                    pass
+                        con_str = ''.join(str(k) for k in con)
+                cluster_seq_id = []
+                while multiple_seqs:
+                     seq_info = multiple_seqs.pop(0)
+                     cluster_seq_id.append(seq_info.id)
 
-            seqid_string = '|'.join(str(l) for l in cluster_seq_id)
-            simple_seq_r = SeqRecord(Seq(con_str, SingleLetterAlphabet()),
-                                     id = "CLUSTER_"+str(cluster_index.pop(0))
-                                     +": "+seqid_string)
-            consensus_list.append(simple_seq_r)
-        elif len(current_cluster) == 1:
-            single_seq = [full_alignment[x] for x in current_cluster]
-            consensus_list.append(single_seq.pop(0))
+                seqid_string = '|'.join(str(l) for l in cluster_seq_id)
+                simple_seq_r = SeqRecord(Seq(con_str, SingleLetterAlphabet()),
+                                         id = "CLUSTER_"+str(cluster_index.pop(0))
+                                         +": "+seqid_string)
+                consensus_list.append(simple_seq_r)
+            elif len(current_cluster) == 1:
+                single_seq = [full_alignment[x] for x in current_cluster]
+                consensus_list.append(single_seq.pop(0))
+        elif type(clusters[0]) == int:
+            noSaturation = alignment_wrap(full_alignment)
+            return noSaturation
     final_aligned_clusters = []
     with tempfile.NamedTemporaryFile() as consensus_alignment: 
         SeqIO.write(consensus_list,consensus_alignment.name,"fasta")
@@ -224,50 +229,49 @@ def grande_alignment (file):
     raw_seqs = starting_pt(file)
     before_segment = clusters_alignment(file)
     list_of_clusters = hawk_wrap(file)
-    big_final_alignment = []
     seqs_in_consensus = []
     position = 0
-    while list_of_clusters:
-        current_cluster = list_of_clusters.pop(0)
-        if len(current_cluster) == 1:
-            single_seq = before_segment[position]
-            big_final_alignment.append(single_seq)
-            position += 1
-        elif len(current_cluster) > 1:
-            seqs_in_the_cluster = [raw_seqs[x] for x in current_cluster]
-            multiple_seq = before_segment[position]
-            while seqs_in_the_cluster:
-                seqs_in_consensus.append(seqs_in_the_cluster.pop(0))
-                with tempfile.NamedTemporaryFile() as segment_align:
-                    SeqIO.write(seqs_in_consensus,segment_align.name, "fasta")
-                    original_seqs = list(SeqIO.parse(segment_align.name, "fasta"))
-                    with tempfile.NamedTemporaryFile() as segmenter:
-                        dash = '-'
-                        consensus = multiple_seq.seq
-                        seq = original_seqs
-                        for n in range(len(seq)):
-                            seq_str = seq[n].seq
-                            seq_id = seq[n].id
-                            able_to_insert_seq = seq_str.tomutable()
-                        for x in consensus:
-                            if x == dash:
-                                dashes = [y for y, x in enumerate(consensus) if x == dash]
-                        while dashes:
-                            dash_position = dashes.pop(0)
-                            able_to_insert_seq.insert(dash_position, '-')
-                        new_seq_record = SeqRecord(Seq(str(able_to_insert_seq),
-                                                       SingleLetterAlphabet()),
-                                                   id = seq_id)
-                        big_final_alignment.append(new_seq_record)
+    if type(list_of_clusters[0]) == list:
+        big_final_alignment = []
+        while list_of_clusters:
+            current_cluster = list_of_clusters.pop(0)
+            if len(current_cluster) == 1:
+                single_seq = before_segment[position]
+                big_final_alignment.append(single_seq)
+                position += 1
+            elif len(current_cluster) > 1:
+                seqs_in_the_cluster = [raw_seqs[x] for x in current_cluster]
+                multiple_seq = before_segment[position]
+                while seqs_in_the_cluster:
+                    seqs_in_consensus.append(seqs_in_the_cluster.pop(0))
+                    with tempfile.NamedTemporaryFile() as segment_align:
+                        SeqIO.write(seqs_in_consensus,segment_align.name, "fasta")
+                        original_seqs = list(SeqIO.parse(segment_align.name, "fasta"))
+                        with tempfile.NamedTemporaryFile() as segmenter:
+                            dash = '-'
+                            consensus = multiple_seq.seq
+                            seq = original_seqs
+                            for n in range(len(seq)):
+                                seq_str = seq[n].seq
+                                seq_id = seq[n].id
+                                able_to_insert_seq = seq_str.tomutable()
+                            for x in consensus:
+                                if x == dash:
+                                    dashes = [y for y, x in enumerate(consensus) if x == dash]
+                            while dashes:
+                                dash_position = dashes.pop(0)
+                                able_to_insert_seq.insert(dash_position, '-')
+                            new_seq_record = SeqRecord(Seq(str(able_to_insert_seq),
+                                                           SingleLetterAlphabet()),
+                                                       id = seq_id)
+                            big_final_alignment.append(new_seq_record)
                         
-            position += 1
+                position += 1
+    elif type(list_of_clusters[0]) == int:
+        big_final_alignment = before_segment
     for seqs in range(len(big_final_alignment)):
         print(">"+big_final_alignment[seqs].id)
         print(big_final_alignment[seqs].seq)
-
-
-
-
 
 
 
