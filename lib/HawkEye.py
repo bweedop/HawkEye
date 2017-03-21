@@ -229,6 +229,8 @@ def grande_alignment (file):
     raw_seqs = starting_pt(file)
     before_segment = clusters_alignment(file)
     list_of_clusters = hawk_wrap(file)
+    print("Clusters formed:")
+    print(list_of_clusters)
     seqs_in_consensus = []
     position = 0
     if type(list_of_clusters[0]) == list:
@@ -249,6 +251,7 @@ def grande_alignment (file):
                         original_seqs = list(SeqIO.parse(segment_align.name, "fasta"))
                         with tempfile.NamedTemporaryFile() as segmenter:
                             dash = '-'
+                            dashes = []
                             consensus = multiple_seq.seq
                             seq = original_seqs
                             for n in range(len(seq)):
