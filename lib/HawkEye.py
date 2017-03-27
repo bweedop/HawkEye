@@ -271,11 +271,11 @@ def grande_alignment (file):
         with tempfile.NamedTemporaryFile() as unequalSeqs:
             dash = '-'
             SeqIO.write(big_final_alignment,unequalSeqs.name, "fasta")
-            big_final_alignment = list(SeqIO.parse(unequalSeqs.name, "fasta"))
-            largestSeq = len(max([big_final_alignment[ind].seq
-                                  for ind in range(len(big_final_alignment))]))
-            while big_final_alignment:
-                checkSeq = big_final_alignment.pop(0)
+            total = list(SeqIO.parse(unequalSeqs.name, "fasta"))
+            largestSeq = len(max([total[ind].seq for ind in range(len(total))],
+                                 key = len))
+            while total:
+                checkSeq = total.pop(0)
                 if len(checkSeq.seq) < largestSeq:
                     smallerLength = len(checkSeq.seq)
                     seqStr = checkSeq.seq
@@ -285,17 +285,17 @@ def grande_alignment (file):
                     while endingDashes:
                         j = endingDashes.pop(0)
                         needsEndingFilled.insert(j, '-')
-                        nowEqual = SeqRecord(Seq(str(needsEndingFilled),
-                                                 SingleLetterAlphabet()),
-                                             id = seqId)
+                    nowEqual = SeqRecord(Seq(str(needsEndingFilled),
+                                             SingleLetterAlphabet()),
+                                         id = seqId)
                     allEqualSeqs.append(nowEqual)
                 elif len(checkSeq.seq) == largestSeq:
-                    allEqualSeqs.append(checkSeq)
+                    allEqualSeqs.append(checkSeq)           
     elif type(list_of_clusters[0]) == int:
         allEqualSeqs = before_segment
     for seqs in range(len(allEqualSeqs)):
         print(">"+allEqualSeqs[seqs].id)
-        print(allEqualSeqs[seqs].seq) 
+        print(allEqualSeqs[seqs].seq)
 
 
 
