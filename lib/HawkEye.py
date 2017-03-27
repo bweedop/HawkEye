@@ -130,14 +130,12 @@ def hawk_wrap (file):
                 cluster_sat = saturation_wrap(cluster_aligned)
                 if cluster_sat > 0.01:
                         new_clusters = sci_hier(raw_calc(cluster_aligned),
-                                          corr_calc(cluster_aligned))
-                        
+                                          corr_calc(cluster_aligned)) 
                         if len(new_clusters) == 1:
                             if len(new_clusters[0]) > 2:
                                 print("ERROR: Issue with separating clusters")
                                 break
-                            elif len(new_clusters[0]) <= 2:
-                                
+                            elif len(new_clusters[0]) <= 2:       
                                 problem_seqs = new_clusters[0]
                                 while problem_seqs:
                                     solution = []
@@ -232,6 +230,7 @@ def grande_alignment (file):
     print("Clusters formed:")
     print(list_of_clusters)
     seqs_in_consensus = []
+    allEqualSeqs = []
     position = 0
     if type(list_of_clusters[0]) == list:
         big_final_alignment = []
@@ -267,15 +266,36 @@ def grande_alignment (file):
                             new_seq_record = SeqRecord(Seq(str(able_to_insert_seq),
                                                            SingleLetterAlphabet()),
                                                        id = seq_id)
-                            big_final_alignment.append(new_seq_record)
-                        
+                            big_final_alignment.append(new_seq_record)       
                 position += 1
+        with tempfile.NamedTemporaryFile() as unequalSeqs:
+            dash = '-'
+            SeqIO.write(big_final_alignment,unequalSeqs.name, "fasta")
+            big_final_alignment = list(SeqIO.parse(unequalSeqs.name, "fasta"))
+            largestSeq = len(max([big_final_alignment[ind].seq
+                                  for ind in range(len(big_final_alignment))]))
+            while big_final_alignment:
+                checkSeq = big_final_alignment.pop(0)
+                if len(checkSeq.seq) < largestSeq:
+                    smallerLength = len(checkSeq.seq)
+                    seqStr = checkSeq.seq
+                    seqId = checkSeq.id
+                    needsEndingFilled = seqStr.tomutable()
+                    endingDashes = list(range(smallerLength+1, largestSeq+1))
+                    while endingDashes:
+                        j = endingDashes.pop(0)
+                        needsEndingFilled.insert(j, '-')
+                        nowEqual = SeqRecord(Seq(str(needsEndingFilled),
+                                                 SingleLetterAlphabet()),
+                                             id = seqId)
+                    allEqualSeqs.append(nowEqual)
+                elif len(checkSeq.seq) == largestSeq:
+                    allEqualSeqs.append(checkSeq)
     elif type(list_of_clusters[0]) == int:
-        big_final_alignment = before_segment
-    for seqs in range(len(big_final_alignment)):
-        print(">"+big_final_alignment[seqs].id)
-        print(big_final_alignment[seqs].seq)
-
+        allEqualSeqs = before_segment
+    for seqs in range(len(allEqualSeqs)):
+        print(">"+allEqualSeqs[seqs].id)
+        print(allEqualSeqs[seqs].seq) 
 
 
 
