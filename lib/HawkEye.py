@@ -91,7 +91,7 @@ def sat_test (d_matrix, c_matrix):
 def sci_hier (d_matrix, c_matrix):
     diff_matrix = d_matrix - c_matrix
     hier = hac.linkage(diff_matrix)
-    dend = hac.fcluster(hier,float(2*np.std(hier[:,[2]])), criterion = 'distance')
+    dend = hac.fcluster(hier,float(np.std(hier[:,[2]])),criterion = 'distance')
     num_clusters = max(dend)+1
     cluster = [[] for x in range(num_clusters)]
     k = 1
@@ -228,6 +228,7 @@ def grande_alignment (file):
     before_segment = clusters_alignment(file)
     list_of_clusters = hawk_wrap(file)
     print("Clusters formed:")
+    print(len(list_of_clusters))
     print(list_of_clusters)
     seqs_in_consensus = []
     allEqualSeqs = []

@@ -1,4 +1,4 @@
-HawkEye - hierarchical sequence alignment for the brave
+Splinter - hierarchical sequence alignment for the brave
 ===============================================================
 Bodie Weedop and Will Pearse
 
